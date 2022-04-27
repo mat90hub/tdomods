@@ -1,0 +1,15 @@
+-*- mode: text; coding: utf-8-unix; fill-column: 80; -*-
+
+Directory for testing file of the libraries
+
+Simply launch:
+
+tclsh all.tcl
+
+
+tdomods-1.0.test  : test suite
+test.ods          : test file created by tdomods-1.0.test
+
+
+
+XSLT : try to reshape XML with WSLT , but no success so far

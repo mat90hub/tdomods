@@ -1,0 +1,633 @@
+#!/usr/bin/env tclsh
+#-*- mode: Tcl; coding: utf-8-unix; fill-column: 100; -*-
+
+
+puts "\n"
+puts "╔═════════════════════════════╗"
+puts "║ *** TEST tdomods-1.0.tm *** ║"
+puts "╚═════════════════════════════╝"
+puts "\n"
+
+
+#------------------------------------------------------------------------------
+# this file to be replaced by your local settings for module libraries
+source ~/Qsync/lib/tcl8.6/debugTool.tcl
+#------------------------------------------------------------------------------
+
+
+#------------------------------------------------------------------------------
+#  package for testing
+#------------------------------------------------------------------------------
+package require tcltest
+namespace import ::tcltest::*
+if {[llength $argv] > 0} {eval configure $argv}
+configure -verbose pass
+# configure -verbose -line
+# configure -verbose -body
+ 
+
+# ------------------------------------------------------------------------------
+# the package to be tested
+package require tdomods::tdomods 1.0
+# ------------------------------------------------------------------------------
+
+# to shorten result into simple string
+package require md5
+
+
+# ------------------------------------------------------------------------------
+# tdomods create obj
+# $obj destroy
+# $obj asXML
+# ------------------------------------------------------------------------------
+test create-01: {Creation of an object tdomods}\
+    -setup {
+	if {[info commands doc] eq "doc"} {doc destroy}
+	tdomods create doc
+	doc set odf_version 1.3
+    }\
+    -body {::md5::md5 -hex [doc asXML]}\
+    -cleanup {doc destroy}\
+    -result DD88633ABA3D08E515B14880DF7E3E07
+
+
+# ------------------------------------------------------------------------------
+# FONTS MANAGEMENT
+# ------------------------------------------------------------------------------
+
+# ------------------------------------------------------------------------------
+#  $obj listFonts
+#  $obj addFont
+#  $obj deleteAllFonts
+#  $obj deleteFont
+# ------------------------------------------------------------------------------
+
+test listfonts-01: {Get the list of fonts declared in content.xml}\
+    -setup {
+	if {[info commands doc] eq "doc"} {doc destroy}
+	tdomods create doc
+    }\
+    -body {doc listFonts}\
+    -cleanup {doc destroy}\
+    -result {{Liberation Sans}}
+
+
+test addFont-01: {testing adding existing font, should not do it...}\
+    -setup {
+	if {[info commands doc] eq "doc"} {doc destroy};
+	tdomods create doc
+    }\
+    -body {doc addFont; doc listFonts}\
+    -cleanup {doc destroy}\
+    -result {{Liberation Sans}}
+
+test addFont-02: {testing adding existing font}\
+    -setup {
+	if {[info commands doc] eq "doc"} {doc destroy}
+	tdomods create doc
+    }\
+    -body {doc addFont Courier; doc listFonts}\
+    -cleanup {doc destroy}\
+    -result {{Liberation Sans} Courier}
+
+test deleteFont-01: {testing adding new font}\
+    -setup {
+	if {[info commands doc] eq "doc"} {doc destroy}
+	tdomods create doc
+    }\
+    -body {
+	doc addFont Courier
+	doc deleteFont {Liberation Sans}
+	doc listFonts
+    }\
+    -cleanup {doc destroy}\
+    -result {Courier}
+
+test deleteAllFont-01: {testing removing all fonts}\
+    -setup {
+	if {[info commands doc] eq "doc"} {doc destroy}
+	tdomods create doc
+	doc addFont Courier
+    }\
+    -body {doc deleteAllFonts; doc listFonts}\
+    -cleanup {doc destroy}\
+    -result {}
+
+test deleteFont-01: {testing removing a font and place another one}\
+    -setup {
+	if {[info commands doc] eq "doc"} {doc destroy}
+	tdomods create doc
+	doc addFont Courier
+	doc deleteFont {Liberation Sans}
+    }\
+    -body {doc listFonts}\
+    -cleanup {doc destroy}\
+    -result {Courier}
+
+
+# ------------------------------------------------------------------------------
+#  PRIVATE METHODS NEEDED TO BUILT CONTENT.XML
+# ------------------------------------------------------------------------------
+
+# ------------------------------------------------------------------------------
+#  $obj DateFmt
+# ------------------------------------------------------------------------------
+
+# first some tests for regexp (regexp is not meant to check the date is correct, but to recognize it
+# as much as possible)
+
+test DateFmt_regexp-1.01: {test regexp in DateFmt, YYYY-MM-DD}\
+    -setup {
+	set EXP {([0-9]{4}|[0-9]{1,2})([-/])([0-9]{1,2})[-/]([0-9]{2}|[0-9]{4})}
+	set data "2020-02-14"
+    }\
+    -body {
+	regexp $EXP $data -> F1 SEP F2 F3
+	puts -nonewline " | $F1 | $SEP | $F2 | $F3 |"
+    }\
+    -output { | 2020 | - | 02 | 14 |}
+
+
+test DateFmt_regexp-1.02: {test regexp in DateFmt, YY-MM-DD}\
+    -setup {
+	set EXP {([0-9]{4}|[0-9]{1,2})([-/])([0-9]{1,2})[-/]([0-9]{2}|[0-9]{4})}
+	set data "20-02-14"
+    }\
+    -body {
+	regexp $EXP $data -> F1 SEP F2 F3
+	puts -nonewline " | $F1 | $SEP | $F2 | $F3 |"
+    }\
+    -output { | 20 | - | 02 | 14 |}
+
+
+test DateFmt_regexp-2.01: {test regexp in DateFmt, DD/MM/YYYY}\
+    -setup {
+	set EXP {([0-9]{4}|[0-9]{1,2})([-/])([0-9]{1,2})[-/]([0-9]{2}|[0-9]{4})}
+	set data "14/02/2020"
+    }\
+    -body {
+	regexp $EXP $data -> F1 SEP F2 F3
+	puts -nonewline " | $F1 | $SEP | $F2 | $F3 |"
+    }\
+    -output { | 14 | / | 02 | 2020 |}
+
+
+test DateFmt_regexp-2.02: {test regexp in DateFmt, DD/MM/YYYY}\
+    -setup {
+	set EXP {([0-9]{4}|[0-9]{1,2})([-/])([0-9]{1,2})[-/]([0-9]{2}|[0-9]{4})}
+	set data "14/02/20"
+    }\
+    -body {
+	regexp $EXP $data -> F1 SEP F2 F3
+	puts -nonewline " | $F1 | $SEP | $F2 | $F3 |"
+    }\
+    -output { | 14 | / | 02 | 20 |}
+
+
+test DateFmt_regexp-3.01: {test regexp in DateFmt, MM-DD-YYYY}\
+    -setup {
+	set EXP {([0-9]{4}|[0-9]{1,2})([-/])([0-9]{1,2})[-/]([0-9]{2}|[0-9]{4})}
+	set data "02-14-2020"
+    }\
+    -body {
+	regexp $EXP $data -> F1 SEP F2 F3
+	puts -nonewline " | $F1 | $SEP | $F2 | $F3 |"
+    }\
+    -output { | 02 | - | 14 | 2020 |}
+
+
+test DateFmt_regexp-3.02: {test regexp in DateFmt, MM-DD-YY}\
+    -setup {
+	set EXP {([0-9]{4}|[0-9]{1,2})([-/])([0-9]{1,2})[-/]([0-9]{2}|[0-9]{4})}
+	set data "02-14-20"
+    }\
+    -body {
+	regexp $EXP $data -> F1 SEP F2 F3
+	puts -nonewline " | $F1 | $SEP | $F2 | $F3 |"
+    }\
+    -output { | 02 | - | 14 | 20 |}
+
+
+# the DateFmt method
+
+test DateFmt-01: {recognize a date and returns its format, default format}\
+    -setup {if {[info commands doc] eq "doc"} {doc destroy}
+		unset -nocomplain RES
+		unset -nocomplain OUT
+		tdomods create doc}\
+    -body {
+	array set RES [[info object namespace doc]::my DateFmt "2020-02-14"]
+	set ID [array names RES]
+	set OUT $ID
+	if {[::md5::md5 -hex [$RES($ID) asXML]] eq \
+		"222F51D61E0F693F3D8927D90048A919"} {
+	    append OUT " OK"
+	}
+    }\
+    -cleanup {doc destroy}\
+    -result {VDY4M2D2 OK}
+
+# to visualize the xml result:
+# array set RES [doc dateFmt "2020-02-14"]
+# $RES([array names RES]) asXML
+
+test DateFmt-02: {recognize a date and returns its format, French format}\
+    -setup {if {[info commands doc] eq "doc"} {doc destroy}
+		unset -nocomplain RES
+		unset -nocomplain OUT
+		tdomods create doc}\
+    -body {array set RES [[info object namespace doc]::my DateFmt "14/02/2020"]
+	       set ID [array names RES]
+	       set OUT $ID
+	       if {[::md5::md5 -hex [$RES($ID) asXML]] eq \
+		       "B9BCC7E3DF4771D4C59B63BAD92DAFA8"} {
+		   append OUT " OK"
+	       }\
+	   }\
+    -cleanup {doc destroy}\
+    -result {VDD2M2Y4 OK}
+
+
+test DateFmt-03: {recognize a date and returns its format, US format}\
+    -setup {if {[info commands doc] eq "doc"} {doc destroy}
+		unset -nocomplain RES
+		unset -nocomplain OUT
+		tdomods create doc}\
+    -body {array set RES [[info object namespace doc]::my DateFmt "02-04-2020"]
+	       set ID [array names RES]
+	       set OUT $ID
+	       if {[::md5::md5 -hex [$RES($ID) asXML]] eq \
+		       "CB4AF41B7A5186FD1C1F2A1C904A2BEB"} {
+		   append OUT " OK"
+	       }\
+	   }\
+    -cleanup {doc destroy}\
+    -result {VDM2D2Y4 OK}
+
+
+# ------------------------------------------------------------------------------
+#  $obj TimeFmt
+# ------------------------------------------------------------------------------
+
+test TimeFmt-01: {recognize a time and returns its format}\
+    -setup {
+	if {[info commands doc] eq "doc"} {doc destroy}
+	unset -nocomplain RES
+	unset -nocomplain OUT
+	tdomods create doc
+    }\
+    -body {array set RES [[info object namespace doc]::my TimeFmt "12:30"]
+	set ID [array names RES]
+	set OUT $ID
+	if {[::md5::md5 -hex [$RES($ID) asXML]] eq \
+		"C67DB9631B4CCB8C9BAF1746DAF92231"} {
+	    append OUT " OK"
+	}
+    }\
+    -cleanup {doc destroy}\
+    -result {VTH2M2 OK}
+
+
+# result: $RES($ID) asXML
+
+
+
+# ------------------------------------------------------------------------------
+#  $obj DateTimeFmt
+# ------------------------------------------------------------------------------
+
+test DateTimeFmt-01: {recognize a datetime and returns its format}\
+    -setup {
+	if {[info commands doc] eq "doc"} {doc destroy}
+	unset -nocomplain RES
+	unset -nocomplain OUT
+	tdomods create doc
+    }\
+    -body {array set RES [[info object namespace doc]::my DateTimeFmt "04/03/2010 12:30"]
+	       set ID [array names RES]
+	       set OUT $ID
+	       if {[::md5::md5 -hex [$RES($ID) asXML]] eq \
+		       "02003AAA2D113B5DDD9C1BDD1AC873AA"} {
+		   append OUT " OK"
+	       }\
+	   }\
+    -cleanup {doc destroy}\
+    -result {VRD2M2Y4TH2M2 OK}
+
+
+# ------------------------------------------------------------------------------
+#  $obj LstStyle
+# ------------------------------------------------------------------------------
+
+test LstStyle-01: {Test LstStyle on a small list of dates with a NA}\
+    -setup {
+	if {[info commands doc] eq "doc"} {doc destroy}
+	tdomods create doc
+    }\
+    -body {[info object namespace doc]::my LstStyle [list NA "10/02/2020" "05/02/2020"]}\
+    -cleanup {doc destroy}\
+    -result VDD2M2Y4
+
+
+test LstStyle-02: {Test LstStyle on a small list of currency}\
+    -setup {
+	if {[info commands doc] eq "doc"} {doc destroy}
+	tdomods create doc
+    }\
+    -body {
+	[info object namespace doc]::my LstStyle [list "1 234,45 €" "546 €"]
+    }\
+    -cleanup {doc destroy}\
+    -result VCD2SSCE
+
+
+test LstStyle-03: {Test lstStyle on a small list of decimals}\
+    -setup {
+	if {[info commands doc] eq "doc"} {doc destroy}
+	tdomods create doc
+    }\
+    -body {
+	[info object namespace doc]::my LstStyle [list "1 234,45" "1 034"]
+    }\
+    -cleanup {doc destroy}\
+    -result VFD2SSM1
+
+
+test LstStyle-04: {Test lstStyle on a small list of integer with 0 upfront}\
+    -setup {
+	if {[info commands doc] eq "doc"} {doc destroy}
+	tdomods create doc
+    }\
+    -body {
+	[info object namespace doc]::my LstStyle [list "001" "002"]
+    }\
+    -cleanup {doc destroy}\
+    -result VID3
+
+
+# ------------------------------------------------------------------------------
+#  $obj RawValue
+# ------------------------------------------------------------------------------
+
+test RawValue-01: {Retrieve raw value of a given string} \
+    -setup {
+	if {[info commands doc] eq "doc"} {doc destroy}
+	tdomods create doc
+    }\
+    -body {[info object namespace doc]::my RawValue "1 456,45" VF2SS}\
+    -cleanup {doc destroy}\
+    -result 1456.45
+
+
+# ------------------------------------------------------------------------------
+#  $obj ColAB
+# ------------------------------------------------------------------------------
+
+test ColAB-01: {Convert a column number to AB notation} \
+    -setup {
+	if {[info commands doc] eq "doc"} {doc destroy}
+	tdomods create doc
+    }\
+    -body {[info object namespace doc]::my ColAB 26}\
+    -cleanup {doc destroy}\
+    -result Z
+
+
+test ColAB-02: {Convert a column number to AB notation, go to 2 letters} \
+    -setup {
+	if {[info commands doc] eq "doc"} {doc destroy}
+	tdomods create doc
+    }\
+    -body {[info object namespace doc]::my ColAB 27}\
+    -cleanup {doc destroy}\
+    -result AA
+
+
+test ColAB-03: {Convert a column number to AB notation, last possible entry} \
+    -setup {
+	if {[info commands doc] eq "doc"} {doc destroy}
+	tdomods create doc
+    }\
+    -body {[info object namespace doc]::my ColAB 702}\
+    -cleanup {doc destroy}\
+    -result ZZ
+
+
+test ColAB-04: {Convert a column number to AB notation, overflow} \
+    -setup {
+	if {[info commands doc] eq "doc"} {doc destroy}
+	tdomods create doc
+    }\
+    -body {[info object namespace doc]::my ColAB 703}\
+    -cleanup {doc destroy}\
+    -returnCodes error \
+    -result {Table cannot have more than 703 columns}
+
+
+# ------------------------------------------------------------------------------
+#  $obj Fmt2style
+# ------------------------------------------------------------------------------
+
+test Fmt2style-01: {Test Fmt2styles, check error interception}\
+    -setup {
+	if {[info commands doc] eq "doc"} {doc destroy}
+	tdomods create doc
+    }\
+    -body {[info object namespace doc]::my Fmt2style [list %4d %.2f %c]}\
+    -cleanup {doc destroy}\
+    -returnCodes error \
+    -result {read first the data, to have a first identification of styles}
+
+
+test Fmt2style-02: {Test Fmt2styles}\
+    -setup {
+	if {[info commands doc] eq "doc"} {doc destroy}
+	tdomods create doc
+	doc set odf_version 1.3
+	set data [list [list "10/10/2020" 234,45 001 "1 456,34 €" ]\
+		      [list "15/10/2020" "3 434,45" 002 "5 450,45 €"]\
+		      [list "20/10/2020" "5 234,45" 005 "10 456,34 €"]]
+	doc read $data
+    }\
+    -body {
+	set node [[info object namespace doc]::my Fmt2style [list %c %.2f %.2f]]
+	::md5::md5 -hex [$node asXML]
+    }\
+    -cleanup {doc destroy}\
+    -result F44C1DED58BF5C743CF749318A898578
+
+# $node asXML
+
+
+# ------------------------------------------------------------------------------
+#  MAIN METHODS
+# ------------------------------------------------------------------------------
+
+# ------------------------------------------------------------------------------
+#  $obj read
+# ------------------------------------------------------------------------------
+
+test read-01: {Test reading of data}\
+    -setup {
+	if {[info commands doc] eq "doc"} {doc destroy}
+	tdomods create doc
+	set data [list [list "10/10/2020" 234,45 001 "1 456,34 €" ]\
+		      [list "15/10/2020" "3 434,45" 002 "5 450,45 €"]\
+		      [list "20/10/2020" "5 234,45" 005 "10 456,34 €"]]
+    }\
+    -body {
+	doc read $data
+	::md5::md5 -hex [doc asXML]
+    }\
+    -cleanup {doc destroy}\
+    -result 2E5B7159F713B879690C471603332688
+
+# xmlstr pretty [doc asXML]
+
+
+# ------------------------------------------------------------------------------
+# The next series of test use a directory test
+# ------------------------------------------------------------------------------
+
+# ------------------------------------------------------------------------------
+# readContent file
+# ------------------------------------------------------------------------------
+# read the content of an xml file and return content.xml as a string, so
+# it can be summarized by md5 and tested.
+# ------------------------------------------------------------------------------
+proc readContent {file {tmpDir #test#}} {
+    file mkdir $tmpDir
+    exec unzip $file -d $tmpDir
+    cd $tmpDir
+    set F [open content.xml RDONLY]
+    set RES [read $F]
+    close $F
+    cd ..
+    file delete -force -- $tmpDir
+    return $RES
+}
+# ------------------------------------------------------------------------------
+
+
+# ------------------------------------------------------------------------------
+#  $obj write
+# ------------------------------------------------------------------------------
+test write-01: {Test write file}\
+    -setup {
+	if {[info commands doc] eq "doc"} {doc destroy}
+	tdomods create doc
+	doc set odf_version 1.3
+	set data [list [list "10/10/2020" 234,45 001 "1 456,34 €" ]\
+		      [list "15/10/2020" "3 434,45" 002 "5 450,45 €"]\
+		      [list "20/10/2020" "5 234,45" 005 "10 456,34 €"]]
+	doc read $data
+	if [info exists RES] {unset RES}
+    }\
+    -body {
+	doc write test.ods
+	# libreoffice --calc test.ods
+	unset -nocomplain RES
+	set RES [readContent test.ods]
+	::md5::md5 -hex $RES
+    }\
+    -cleanup {
+	file delete -force test.ods
+	doc destroy
+    }\
+    -result 2E5B7159F713B879690C471603332688
+
+# libreoffice --calc test.ods
+# libreoffice.calc test.ods
+
+
+# ------------------------------------------------------------------------------
+#  $obj autoStyles
+# ------------------------------------------------------------------------------
+
+test autoStyles-01: {Retrieve the auto styles as XML}\
+    -setup {
+	if {[info commands doc] eq "doc"} {doc destroy}
+	tdomods create doc
+    }\
+    -body {doc autoStyles asXML}\
+    -cleanup {doc destroy}\
+    -result "<office:automatic-styles/>\n"
+
+# empty object has no automatic styles defined yet
+
+
+test autoStyles-02: {Retrieve the auto styles as XML}\
+    -setup {
+	if {[info commands doc] eq "doc"} {doc destroy}
+	tdomods create doc
+	set data [list [list "10/10/2020" 234,45 001 "1 456,34 €" ]\
+		      [list "15/10/2020" "3 434,45" 002 "5 450,45 €"]\
+		      [list "20/10/2020" "5 234,45" 005 "10 456,34 €"]]
+	doc read $data
+    }\
+    -body {doc autoStyles asList}\
+    -cleanup {doc destroy}\
+    -result {ro2 VDD2M2Y4 ce1 VFD2SSM1 ce2 VID3 ce3 VCD2SSCE ce4}
+
+
+# ------------------------------------------------------------------------------w
+#  $obj insertHeaders
+# ------------------------------------------------------------------------------
+#
+test insertHeaders-01: {Insertion of headers line}\
+    -setup {
+	if {[info commands doc] eq "doc"} {doc destroy}
+	tdomods create doc
+	doc set odf_version 1.3
+    }\
+    -body {
+	set data [list [list "10/10/2020" 234,45 001 "1 456,34 €" ]\
+		      [list "15/10/2020" "3 434,45" 002 "5 450,45 €"]\
+		      [list "20/10/2020" "5 234,45" 005 "10 456,34 €"]]
+	doc read $data
+	doc insertHeaders [list Date Décimal Index Montant]
+	doc write test.ods
+	# libreoffice --calc test.ods
+	unset -nocomplain RES
+	set RES [readContent test.ods]
+	::md5::md5 -hex $RES
+    }\
+    -cleanup {doc destroy}\
+    -result 37733E1EB294D8F5CFE3110758D0D267
+
+# libreoffice --calc test.ods
+# libreoffice.calc test.ods
+
+
+# ------------------------------------------------------------------------------w
+#  $obj addAutoFilter
+# ------------------------------------------------------------------------------
+test addAutoFilter-01: {Insertion of headers line}\
+    -setup {
+	if {[info commands doc] eq "doc"} {doc destroy}
+	tdomods create doc
+	doc set odf_version 1.3
+    }\
+    -body {
+	set data [list [list "10/10/2020" 234,45 001 "1 456,34 €" ]\
+		      [list "15/10/2020" "3 434,45" 002 "5 450,45 €"]\
+		      [list "20/10/2020" "5 234,45" 005 "10 456,34 €"]]
+	doc read $data
+	doc insertHeaders [list Date Décimal Index Montant]
+	doc addAutoFilter
+	doc write test.ods
+	# libreoffice --calc test.ods
+	unset -nocomplain RES
+	set RES [readContent test.ods]
+	::md5::md5 -hex $RES
+    }\
+    -cleanup {doc destroy}\
+    -result CBF637E85DFC5175474965C75C2A5352
+
+# libreoffice --calc test.ods
+# libreoffice.calc test.ods
+
+
+puts "┌─────────────────────┐"
+puts "│ *** END OF TEST *** │"
+puts "└─────────────────────┘"
