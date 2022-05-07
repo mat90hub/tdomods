@@ -1,6 +1,6 @@
 A Tcl module to write table into ODS file
 
-This Tcl module create object of the class tdomdos which allow to write table into ODS file, readable and modifiable under LibreOffice Calc.
+This Tcl module create object of the class tdomods which allow to write table into ODS file, readable and modifiable under LibreOffice Calc. It uses for it the package tdom.
 
 The table must be in the form of list of lines. Have a look at the module datatable, if you need to convert between different table formats before writing in the ODS file.
 
