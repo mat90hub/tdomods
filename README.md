@@ -1,0 +1,15 @@
+<!-- -*- coding: utf-8-unix; mode: markdown; mode: auto-fill; fill-column: 80; ispell-local-dictionary: "american";-*- -->
+
+# A Tcl module to write table into ODS file
+
+This Tcl module supply a TclOO class tdomods, based on the package
+tdom. It allows to create objects writting tables into spreadsheet
+files of the type ODS.  ODS is the default format for the spreadsheet
+application LibreOffice Calc.
+
+The tables must be in the form of list of lines. Have a look at the
+module datatable, if you need to convert between different table
+formats before writing in the ODS file.
+
+More help and description is included as comments at the begining of
+the file tdomods.tm itselft.
