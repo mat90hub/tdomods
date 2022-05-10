@@ -1,6 +1,6 @@
 <!-- -*- coding: utf-8-unix; mode: markdown; mode: auto-fill; fill-column: 80; ispell-local-dictionary: "american";-*- -->
 
-# A Tcl module to write table into ODS file
+# A Tcl module to write table into ODS file with tdom
 
 This Tcl module supply a TclOO class tdomods, based on the package
 tdom. It allows to create objects writting tables into spreadsheet
